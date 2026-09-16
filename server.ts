@@ -2,10 +2,14 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenAI, Type } from '@google/genai';
+import { SUBJECTS } from './src/data/subjects';
+import type { Question, SubjectId } from './src/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VALID_SUBJECT_IDS = new Set(SUBJECTS.map((s) => s.id));
 
 const PORT = Number(process.env.PORT) || 3001;
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -141,6 +145,99 @@ app.post('/api/generate-questions', async (req, res) => {
     console.error('[api/generate-questions] Gemini error:', err);
     res.status(502).json({ error: 'AI問題生成中にエラーが発生しました。時間をおいて再試行してください。' });
   }
+});
+
+// --- AI生成問題の永続化ストア(採用フロー) ---
+// data/custom-questions.json に科目ごとの採用済みAI生成問題を保存する。
+const CUSTOM_QUESTIONS_PATH = path.join(__dirname, 'data', 'custom-questions.json');
+
+type CustomQuestionStore = Record<SubjectId, Question[]>;
+
+function emptyStore(): CustomQuestionStore {
+  return SUBJECTS.reduce((acc, s) => {
+    acc[s.id] = [];
+    return acc;
+  }, {} as CustomQuestionStore);
+}
+
+async function loadCustomQuestions(): Promise<CustomQuestionStore> {
+  try {
+    const raw = await fs.readFile(CUSTOM_QUESTIONS_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return { ...emptyStore(), ...parsed };
+  } catch {
+    return emptyStore();
+  }
+}
+
+async function saveCustomQuestions(store: CustomQuestionStore): Promise<void> {
+  await fs.mkdir(path.dirname(CUSTOM_QUESTIONS_PATH), { recursive: true });
+  await fs.writeFile(CUSTOM_QUESTIONS_PATH, JSON.stringify(store, null, 2), 'utf-8');
+}
+
+app.get('/api/custom-questions', async (_req, res) => {
+  const store = await loadCustomQuestions();
+  res.json({ questions: store });
+});
+
+app.post('/api/custom-questions', async (req, res) => {
+  const { subject, question } = req.body ?? {};
+
+  if (typeof subject !== 'string' || !VALID_SUBJECT_IDS.has(subject as SubjectId)) {
+    res.status(400).json({ error: '科目が不正です。' });
+    return;
+  }
+  if (
+    !question ||
+    typeof question.text !== 'string' ||
+    !Array.isArray(question.choices) ||
+    question.choices.length !== 4 ||
+    typeof question.correctIndex !== 'number' ||
+    question.correctIndex < 0 ||
+    question.correctIndex > 3 ||
+    typeof question.explanation !== 'string'
+  ) {
+    res.status(400).json({ error: '問題データの形式が不正です。' });
+    return;
+  }
+
+  const store = await loadCustomQuestions();
+  const subjectId = subject as SubjectId;
+  const list = store[subjectId] ?? [];
+
+  const saved: Question = {
+    id: `custom-${subjectId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    subject: subjectId,
+    number: list.length + 1,
+    text: question.text,
+    choices: question.choices as [string, string, string, string],
+    correctIndex: question.correctIndex as 0 | 1 | 2 | 3,
+    explanation: question.explanation,
+  };
+
+  store[subjectId] = [...list, saved];
+  await saveCustomQuestions(store);
+  res.status(201).json({ question: saved });
+});
+
+app.delete('/api/custom-questions/:id', async (req, res) => {
+  const { id } = req.params;
+  const store = await loadCustomQuestions();
+  let removed = false;
+
+  for (const subjectId of Object.keys(store) as SubjectId[]) {
+    const before = store[subjectId].length;
+    store[subjectId] = store[subjectId].filter((q) => q.id !== id);
+    if (store[subjectId].length !== before) removed = true;
+  }
+
+  if (!removed) {
+    res.status(404).json({ error: '指定された問題が見つかりませんでした。' });
+    return;
+  }
+
+  await saveCustomQuestions(store);
+  res.json({ ok: true });
 });
 
 // Production: serve the built frontend

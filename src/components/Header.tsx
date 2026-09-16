@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const navItems = [
   { to: '/', label: 'ホーム', end: true },
   { to: '/bookmarks', label: 'ブックマーク' },
+  { to: '/review-mistakes', label: '苦手復習' },
   { to: '/mock-exam', label: '模擬試験' },
   { to: '/stats', label: '成績' },
   { to: '/ai-generate', label: 'AI問題生成' },

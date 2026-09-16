@@ -1,16 +1,15 @@
 import { Link } from 'react-router-dom';
 import { SUBJECTS } from '../data/subjects';
-import { ALL_QUESTIONS } from '../data/questions';
 import SubjectCard from '../components/SubjectCard';
 import ProgressBar from '../components/ProgressBar';
 import { useProgress } from '../hooks/useProgress';
+import { useCustomQuestions } from '../hooks/useCustomQuestions';
 
 export default function HomePage() {
-  const { answers, bookmarks } = useProgress();
-  const answeredCount = Object.keys(answers).length;
-  const correctCount = Object.values(answers).filter((a) => a.isCorrect).length;
-  const total = ALL_QUESTIONS.length;
-  const rate = answeredCount > 0 ? correctCount / answeredCount : 0;
+  const { bookmarks, getStatsForQuestions } = useProgress();
+  const { getMergedQuestions } = useCustomQuestions();
+  const allQuestions = SUBJECTS.flatMap((s) => getMergedQuestions(s.id));
+  const { answered: answeredCount, total, rate } = getStatsForQuestions(allQuestions);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">

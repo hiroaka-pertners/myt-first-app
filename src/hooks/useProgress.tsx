@@ -1,18 +1,28 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import type { AnswerRecord, SubjectId } from '../types';
+import type { AnswerRecord, Question, SubjectId } from '../types';
 import { loadJSON, saveJSON } from '../utils/storage';
 import { getQuestionsBySubject } from '../data/questions';
 
 const ANSWERS_KEY = 'shindanshi:answers:v1';
 const BOOKMARKS_KEY = 'shindanshi:bookmarks:v1';
 
+interface SubjectStats {
+  answered: number;
+  correct: number;
+  total: number;
+  rate: number;
+}
+
 interface ProgressContextValue {
   answers: Record<string, AnswerRecord>;
   bookmarks: string[];
   recordAnswer: (questionId: string, selectedIndex: number, correctIndex: number) => void;
+  clearAnswer: (questionId: string) => void;
   toggleBookmark: (questionId: string) => void;
   isBookmarked: (questionId: string) => boolean;
-  getSubjectStats: (subject: SubjectId) => { answered: number; correct: number; total: number; rate: number };
+  getSubjectStats: (subject: SubjectId, questions?: Question[]) => SubjectStats;
+  getStatsForQuestions: (questions: Question[]) => SubjectStats;
+  getWrongQuestionIds: () => string[];
   resetProgress: () => void;
 }
 
@@ -40,6 +50,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const clearAnswer = (questionId: string) => {
+    setAnswers((prev) => {
+      if (!(questionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      saveJSON(ANSWERS_KEY, next);
+      return next;
+    });
+  };
+
   const toggleBookmark = (questionId: string) => {
     setBookmarks((prev) => {
       const next = prev.includes(questionId)
@@ -52,8 +72,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const isBookmarked = (questionId: string) => bookmarks.includes(questionId);
 
-  const getSubjectStats = (subject: SubjectId) => {
-    const questions = getQuestionsBySubject(subject);
+  const getStatsForQuestions = (questions: Question[]): SubjectStats => {
     let answered = 0;
     let correct = 0;
     for (const q of questions) {
@@ -71,6 +90,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  const getSubjectStats = (subject: SubjectId, questions?: Question[]): SubjectStats =>
+    getStatsForQuestions(questions ?? getQuestionsBySubject(subject));
+
+  const getWrongQuestionIds = (): string[] =>
+    Object.values(answers)
+      .filter((a) => !a.isCorrect)
+      .map((a) => a.questionId);
+
   const resetProgress = () => {
     setAnswers({});
     setBookmarks([]);
@@ -82,9 +109,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     answers,
     bookmarks,
     recordAnswer,
+    clearAnswer,
     toggleBookmark,
     isBookmarked,
     getSubjectStats,
+    getStatsForQuestions,
+    getWrongQuestionIds,
     resetProgress,
   };
 

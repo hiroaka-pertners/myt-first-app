@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getQuestionsBySubject } from '../data/questions';
 import { SUBJECT_MAP, SUBJECTS } from '../data/subjects';
 import type { SubjectId } from '../types';
 import QuestionPanel from '../components/QuestionPanel';
+import { useCustomQuestions } from '../hooks/useCustomQuestions';
 
 export default function PracticePage() {
   const { subjectId } = useParams<{ subjectId: string }>();
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
+  const { getMergedQuestions } = useCustomQuestions();
 
   const isValidSubject = subjectId && SUBJECTS.some((s) => s.id === subjectId);
-  const questions = isValidSubject ? getQuestionsBySubject(subjectId as SubjectId) : [];
+  const questions = isValidSubject ? getMergedQuestions(subjectId as SubjectId) : [];
 
   useEffect(() => {
     setIndex(0);

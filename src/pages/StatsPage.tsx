@@ -1,13 +1,14 @@
 import { SUBJECTS } from '../data/subjects';
-import { ALL_QUESTIONS } from '../data/questions';
 import { useProgress } from '../hooks/useProgress';
+import { useCustomQuestions } from '../hooks/useCustomQuestions';
 import ProgressBar from '../components/ProgressBar';
 
 export default function StatsPage() {
-  const { answers, getSubjectStats, resetProgress } = useProgress();
-  const answeredCount = Object.keys(answers).length;
-  const correctCount = Object.values(answers).filter((a) => a.isCorrect).length;
-  const total = ALL_QUESTIONS.length;
+  const { getStatsForQuestions, resetProgress } = useProgress();
+  const { getMergedQuestions } = useCustomQuestions();
+
+  const allQuestions = SUBJECTS.flatMap((s) => getMergedQuestions(s.id));
+  const overall = getStatsForQuestions(allQuestions);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -18,21 +19,21 @@ export default function StatsPage() {
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-sm font-semibold text-slate-700">全体の進捗</span>
           <span className="text-sm text-slate-500">
-            {answeredCount} / {total} 問
+            {overall.answered} / {overall.total} 問
           </span>
         </div>
-        <ProgressBar value={total > 0 ? answeredCount / total : 0} />
+        <ProgressBar value={overall.total > 0 ? overall.answered / overall.total : 0} />
         <p className="mt-2 text-sm text-slate-600">
-          正答率: <span className="font-bold text-blue-700">{answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0}%</span>
+          正答率: <span className="font-bold text-blue-700">{Math.round(overall.rate * 100)}%</span>
           <span className="ml-1 text-xs text-slate-400">
-            ({correctCount}/{answeredCount} 問正解)
+            ({overall.correct}/{overall.answered} 問正解)
           </span>
         </p>
       </div>
 
       <div className="space-y-3">
         {SUBJECTS.map((subject) => {
-          const stats = getSubjectStats(subject.id);
+          const stats = getStatsForQuestions(getMergedQuestions(subject.id));
           return (
             <div key={subject.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">

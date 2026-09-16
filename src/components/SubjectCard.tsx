@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import type { SubjectMeta } from '../types';
 import ProgressBar from './ProgressBar';
 import { useProgress } from '../hooks/useProgress';
+import { useCustomQuestions } from '../hooks/useCustomQuestions';
 
 export default function SubjectCard({ subject }: { subject: SubjectMeta }) {
   const { getSubjectStats } = useProgress();
-  const stats = getSubjectStats(subject.id);
+  const { getMergedQuestions } = useCustomQuestions();
+  const stats = getSubjectStats(subject.id, getMergedQuestions(subject.id));
   const progressRatio = stats.total > 0 ? stats.answered / stats.total : 0;
 
   return (

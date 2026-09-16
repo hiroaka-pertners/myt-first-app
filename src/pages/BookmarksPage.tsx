@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useProgress } from '../hooks/useProgress';
-import { getQuestionById } from '../data/questions';
+import { useCustomQuestions } from '../hooks/useCustomQuestions';
 import QuestionPanel from '../components/QuestionPanel';
 
 export default function BookmarksPage() {
   const { bookmarks } = useProgress();
-  const questions = bookmarks.map((id) => getQuestionById(id)).filter((q): q is NonNullable<typeof q> => Boolean(q));
+  const { getMergedQuestionById } = useCustomQuestions();
+  const questions = bookmarks
+    .map((id) => getMergedQuestionById(id))
+    .filter((q): q is NonNullable<typeof q> => Boolean(q));
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">

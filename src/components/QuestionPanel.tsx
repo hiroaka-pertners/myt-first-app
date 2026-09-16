@@ -41,6 +41,9 @@ export default function QuestionPanel({
             {subjectMeta.name}
           </span>
           {indexLabel && <span className="text-slate-500">{indexLabel}</span>}
+          {question.id.startsWith('custom-') && (
+            <span className="rounded-md bg-violet-100 px-2 py-0.5 font-semibold text-violet-700">✨ AI生成</span>
+          )}
         </div>
         <button
           type="button"
